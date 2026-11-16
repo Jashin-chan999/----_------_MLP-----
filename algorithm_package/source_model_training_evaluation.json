@@ -1,0 +1,161 @@
+{
+  "data_pipeline": {
+    "ckpt_path": "/mnt/data/zhitong_user_task/weights_extracted/weights/k0_query_task_mlp_seed_20261025_fold_1.pt",
+    "input_dim": 22,
+    "n_hourly_rows": 195991,
+    "n_devices": 24,
+    "poi_z_means": [
+      4.973960225767728,
+      4.906809129340073,
+      4.437490586110148,
+      2.578034870014157,
+      4.664505754174355
+    ],
+    "poi_z_stds": [
+      0.07504639768317882,
+      0.12878932078262617,
+      0.060027302756340044,
+      0.32054683950915186,
+      0.13321178468497066
+    ],
+    "source_split_counts": {
+      "meta_train": 16,
+      "test": 5,
+      "validation": 3
+    },
+    "feature_order": [
+      "latitude",
+      "longitude",
+      "log1p_poi_restaurant_500m",
+      "log1p_poi_residential_500m",
+      "log1p_poi_commercial_500m",
+      "log1p_poi_school_500m",
+      "log1p_poi_park_500m",
+      "poi_restaurant_500m_missing",
+      "poi_residential_500m_missing",
+      "poi_commercial_500m_missing",
+      "poi_school_500m_missing",
+      "poi_park_500m_missing",
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "doy_sin",
+      "doy_cos",
+      "is_weekend",
+      "is_holiday",
+      "pre_holiday",
+      "post_holiday"
+    ]
+  },
+  "training": {
+    "target": "positive hourly fill increment fraction = max(filllevel_t - filllevel_t-1,0)/100, previous timestamp exactly one UTC hour apart; model output is softplus(linear output) to keep increments nonnegative",
+    "training_cutoff_local_date": "2024-02-25",
+    "query_eval_period_local": [
+      "2024-03-04",
+      "2024-06-15"
+    ],
+    "fold": 1,
+    "split": "fold 1 meta_train devices only; validation/test devices held out",
+    "train_rows": 111228,
+    "val_rows": 2545,
+    "test_rows": 5837,
+    "train_bins": [
+      "r718x-676b",
+      "r718x-6771",
+      "r718x-6773",
+      "r718x-6774",
+      "r718x-6775",
+      "r718x-6778",
+      "r718x-677a",
+      "r718x-677c",
+      "r718x-677e",
+      "r718x-6f0b",
+      "r718x-6f0f",
+      "r718x-6f13",
+      "r718x-6f25",
+      "r718x-6f33",
+      "r718x-6f34",
+      "r718x-6f35"
+    ],
+    "val_bins": [
+      "r718x-6f06",
+      "r718x-6f16"
+    ],
+    "test_bins": [
+      "r718x-676c",
+      "r718x-676f",
+      "r718x-6f10",
+      "r718x-6f1f"
+    ],
+    "winsor_cap_fraction_training_p99": 0.1550000011920929,
+    "best_epoch": 21,
+    "best_val_mse_fraction_squared": 0.00019818617147393525,
+    "seed": 20261025,
+    "max_epochs": 300,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "metrics": {
+      "model_clipped_to_nonnegative_vs_raw_observed": {
+        "n": 5837,
+        "mae_pp": 0.762525125552795,
+        "rmse_pp": 2.407280077404223,
+        "mean_pred_pp_per_hour": 0.41968605578875434,
+        "mean_true_pp_per_hour": 0.48646564686826305
+      },
+      "zero_baseline_vs_raw_observed": {
+        "n": 5837,
+        "mae_pp": 0.48646564686826305,
+        "rmse_pp": 2.4589049917412855,
+        "mean_pred_pp_per_hour": 0.0,
+        "mean_true_pp_per_hour": 0.48646564686826305
+      },
+      "training_mean_baseline_vs_raw_observed": {
+        "n": 5837,
+        "mae_pp": 0.8491985617530673,
+        "rmse_pp": 2.410985341832282,
+        "mean_pred_pp_per_hour": 0.5437839310616255,
+        "mean_true_pp_per_hour": 0.48646564686826305
+      },
+      "model_clipped_to_nonnegative_vs_capped_target": {
+        "n": 5837,
+        "mae_pp": 0.707616783532818,
+        "rmse_pp": 1.7664854064889022,
+        "mean_pred_pp_per_hour": 0.41968605578875434,
+        "mean_true_pp_per_hour": 0.43155730484828614
+      },
+      "validation_clipped_model_vs_capped_target": {
+        "n": 2545,
+        "mae_pp": 0.611226562494531,
+        "rmse_pp": 1.4077860760650263,
+        "mean_pred_pp_per_hour": 0.44651562473915096,
+        "mean_true_pp_per_hour": 0.22082514683981308
+      },
+      "daily_increment_totals_test_bins": {
+        "n_bin_days": 237,
+        "model_mae_pp_per_day": 9.288711878810007,
+        "model_rmse_pp_per_day": 15.3207502070197,
+        "model_mean_predicted_pp_per_day": 9.376376829938255,
+        "observed_mean_positive_increment_pp_per_day": 10.959915547997136,
+        "zero_baseline_mae_pp_per_day": 10.959915547997136,
+        "zero_baseline_rmse_pp_per_day": 19.160464883050306,
+        "mean_bias_pp_per_day": -1.583538718058881
+      }
+    },
+    "caveat": "Melbourne held-out-device evaluation does not establish Wenzhou calibration; Wenzhou has no observed hourly labels in current input."
+  },
+  "test_split_hourly_target_distribution_raw_fraction": {
+    "p0": 0.0,
+    "p50": 0.0,
+    "p90": 0.009999999776482582,
+    "p99": 0.11500000208616257,
+    "mean": 0.00486465646868263
+  },
+  "test_model_prediction_distribution_fraction_before_nonnegative_clip": {
+    "min": 0.0006798384711146355,
+    "p50": 0.003966943360865116,
+    "mean": 0.004196860557887544,
+    "max": 0.009618967771530151
+  },
+  "interpretation": "Predicted increment is a source-trained expected positive hourly change in fill fraction (softplus output);  it is not an absolute fill-level prediction and is not normalized to sum to 100% per day."
+}

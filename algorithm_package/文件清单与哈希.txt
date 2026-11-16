@@ -1,0 +1,11 @@
+智桶潮汐 MLP 真实推理版文件清单
+
+algorithm.py: 实时点位状态管理 + 增量 MLP 特征构造与推理调用；默认 gain=1.0。
+melbourne_hourly_increment_mlp_seed_20261025_fold_1.pt: 墨尔本传感器数据训练得到的增量预测模型权重。
+demo.py: 演示调用每个点位的模型小时增量预测并推进状态。
+test_algorithm.py: 9 项单元测试。
+forecast_report_no_gain.json: 温州五个点位 24 小时模型推理摘要及限制。
+source_model_training_evaluation.json: 留出测试模型评估数据。
+README_运行说明.txt: 依赖、运行命令、输入输出、方法限制。
+
+声明：本包不包含 3.375x 固定预生成曲线；推理时直接加载权重并计算模型输出。模型跨城市迁移且小时级留出测试弱于零增量基线，不能称为已验证的温州生产级模型。

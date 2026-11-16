@@ -1,0 +1,34 @@
+{
+  "README_运行说明.txt": {
+    "bytes": 3009,
+    "sha256": "d4406dd9df7a920735012edd6093a5d5861abe99cee7e49000b601a794d4b48e"
+  },
+  "algorithm.py": {
+    "bytes": 15383,
+    "sha256": "a27132a2f9da7561b6432a47ead3762c3a5b3346b49fbbc4bc2ba260da72cd0e"
+  },
+  "demo.py": {
+    "bytes": 746,
+    "sha256": "343f2899f1f307d1e9a25b487096e4f2001f484da5ac989838b4afc174f0d542"
+  },
+  "forecast_report_no_gain.json": {
+    "bytes": 4302,
+    "sha256": "5edc6bae0bbf7077bd528fe72b706cf30c5967ec119aba692e8ea3faf65deaba"
+  },
+  "melbourne_hourly_increment_mlp_seed_20261025_fold_1.pt": {
+    "bytes": 32229,
+    "sha256": "716458639d45e6ed3f67493aea05298ae203f656f6d0023f17df735f1463f2e2"
+  },
+  "source_model_training_evaluation.json": {
+    "bytes": 5097,
+    "sha256": "61db4ec17cab6b2c25e2ee222388abe23485152b66b94a72092c3f51592d4366"
+  },
+  "test_algorithm.py": {
+    "bytes": 3015,
+    "sha256": "e97c347cf1f1192831005d70ef1e55454ed46d68537ff6c9d9e736e52b2bdd16"
+  },
+  "文件清单与哈希.txt": {
+    "bytes": 857,
+    "sha256": "24b773b396303d22bf4266dff0a4d103c5cb15dd3de89ff5a387811f68ba1ede"
+  }
+}

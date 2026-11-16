@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智桶潮汐 - 风险监控演示</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='leaflet.css') }}" />
+    <script src="{{ url_for('static', filename='leaflet.js') }}"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft YaHei", sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #1a73e8, #0d47a1); color: white; padding: 16px 24px; font-size: 20px; font-weight: bold; }
+        .header span { font-size: 14px; font-weight: normal; opacity: 0.8; margin-left: 12px; }
+        .main { display: flex; height: calc(100vh - 60px); }
+        .map-container { flex: 1; position: relative; }
+        #map { width: 100%; height: 100%; }
+        .map-label { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); color: #333; font-size: 14px; font-weight: bold; background: rgba(255,255,255,0.95); padding: 6px 16px; border-radius: 6px; pointer-events: none; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .sidebar { width: 340px; background: white; border-left: 1px solid #ddd; padding: 16px; overflow-y: auto; }
+        .sidebar h3 { margin-bottom: 12px; color: #333; }
+        .task-card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+        .task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: #f0f7ff; }
+        .bin-id { font-weight: bold; color: #1a73e8; }
+        .task-type { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-top: 6px; }
+        .task-type.urgent { background: #ffebee; color: #c62828; }
+        .task-type.normal { background: #fff3e0; color: #e65100; }
+        .location { font-size: 12px; color: #666; margin-top: 4px; }
+        .info-window { padding: 8px; }
+        .info-window .title { font-weight: bold; margin-bottom: 4px; }
+        .info-window .detail { font-size: 12px; color: #666; }
+        .risk-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-top: 6px; font-weight: bold; }
+        .risk-high { background: #ffebee; color: #c62828; }
+        .risk-mid { background: #fff3e0; color: #e65100; }
+        .risk-low { background: #e8f5e9; color: #2e7d32; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    🗑️ 智桶潮汐 · 风险监控调度台 <span>演示版本 v0.6 (真实坐标+高德底图)</span>
+</div>
+
+<div class="main">
+    <div class="map-container">
+        <div id="map"></div>
+        <div class="map-label">📍 温州大学城 · 茶山高教园区</div>
+    </div>
+    
+    <div class="sidebar">
+        <h3>📋 待处理任务 (<span id="task-count">0</span>)</h3>
+        <div id="task-list"></div>
+    </div>
+</div>
+
+<script>
+let bins = [];
+let tasks = [];
+let markers = {};
+let lastCompleteTime = 0;
+
+// ============ 高德免 Key 瓦片底图 ============
+const map = L.map('map', {
+    zoomControl: true,
+    scrollWheelZoom: false
+}).setView([27.919, 120.700], 15);
+
+L.tileLayer(
+    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    {
+        subdomains: ['1','2','3','4'],
+        maxZoom: 18,
+        attribution: '© 高德地图'
+    }
+).addTo(map);
+
+let markerGroup = L.featureGroup().addTo(map);
+
+// ============ 温州大学城真实坐标（GCJ-02 近似，直接画高德底图） ============
+const DEFAULT_COORDS = {
+    // A001: 温大南校-主道环岛（学子广场西南角，中心南路与中心西路交汇附近）
+    "A001": [27.919885,120.70419], 
+    // A002: 温大南校-A区食堂（即【怡口乐餐厅】，步青路旁，温州大学南区东北门附近）
+    "A002": [27.920169,120.69729], 
+    // A003: 温大C区宿舍区（学子广场东侧，中心东路/求知路旁，需从西侧移回东侧）
+    "A003": [27.921614,120.707809], 
+    // A004: 温大B区宿舍（北校区西侧，育英大礼堂/创业园B区附近）
+    "A004": [27.925097,120.699858], 
+    // A005: 温医大-中心北路食堂（最东侧，温医大生活区）
+    "A005": [27.92096,120.70984]  
+};
+
+// 地图中心保持对准学子广场
+map.setView([27.919866, 120.704225], 15); 
+
+
+const DEFAULT_NAMES = {
+    "A001": "温大南校-主道环岛",
+    "A002": "温大南校-A区食堂",
+    "A003": "温大C区宿舍区",
+    "A004": "温大B区宿舍区",
+    "A005": "温医大-中心北路食堂"
+};
+
+// ★ 统一用 riskLevel 字段判断风险等级
+function getRiskLevel(bin) {
+    const level = (bin.riskLevel || '').toLowerCase();
+    if (level === 'high' || level === 'critical') return 'high';
+    if (level === 'medium' || level === 'mid') return 'mid';
+    return 'low';
+}
+
+// 首次加载
+fetch('/api/risk')
+  .then(res => res.json())
+  .then(data => {
+    console.log('✅ 后端实时数据:', data);
+    bins = data.bins || [];
+    tasks = data.tasks || [];
+    renderMap();
+    renderTasks();
+  })
+  .catch(err => {
+    console.log('⚠️ 走兜底假数据，原因:', err);
+    bins = [
+      {id:"A001", lat:27.9182, lng:120.6998, location:"温大南校-主道环岛", fillRate:92, risk:92, riskLevel:"high"},
+      {id:"A002", lat:27.9178, lng:120.6985, location:"温大南校-A区食堂", fillRate:75, risk:56, riskLevel:"medium"},
+      {id:"A003", lat:27.9203, lng:120.7030, location:"温大C区宿舍区", fillRate:30, risk:22, riskLevel:"low"},
+      {id:"A004", lat:27.9215, lng:120.6975, location:"温大B区宿舍区", fillRate:15, risk:10, riskLevel:"low"},
+      {id:"A005", lat:27.9210, lng:120.7098, location:"温医大-中心北路食堂", fillRate:88, risk:80, riskLevel:"high"}
+    ];
+    tasks = bins.filter(b => b.fillRate >= 80 || b.riskLevel === 'high' || b.riskLevel === 'medium').map(b => ({
+      binId: b.id, priority: b.fillRate>=80?'紧急':'常规', type: b.fillRate>=80?'clean':'check', label: b.fillRate>=80?'清运任务':'巡检任务', location: b.location
+    }));
+    renderMap();
+    renderTasks();
+  });
+
+// 渲染地图
+function renderMap() {
+    if (Object.keys(markers).length === 0) markerGroup.clearLayers();
+    
+    bins.forEach(bin => {
+        // 取坐标（直接用，不纠偏——坐标已按高德GCJ-02给的）
+        const lat = bin.lat || (DEFAULT_COORDS[bin.id] ? DEFAULT_COORDS[bin.id][0] : 27.919 + (Math.random()-0.5)*0.005);
+        const lng = bin.lng || (DEFAULT_COORDS[bin.id] ? DEFAULT_COORDS[bin.id][1] : 120.700 + (Math.random()-0.5)*0.005);
+        
+        const level = getRiskLevel(bin);
+        let color = '#52c41a'; // low → 绿
+        if (level === 'high') color = '#f5222d';   // 红
+        else if (level === 'mid') color = '#fa8c16'; // 橙
+        
+        const riskText = level === 'high' ? '🔴 高风险' : level === 'mid' ? '🟠 中风险' : '🟢 低风险';
+        const fillDisplay = (parseFloat(bin.fillRate) || 0).toFixed(1).replace('.0','') + '%';
+        const locationName = bin.location || DEFAULT_NAMES[bin.id] || '温州大学城';
+        
+        const popupHtml = `
+            <div class="info-window">
+                <div class="title">${bin.id}</div>
+                <div class="detail">${locationName}</div>
+                <div class="detail">填充率：${fillDisplay}</div>
+                <div class="risk-tag risk-${level}">${riskText}</div>
+            </div>`;
+        
+        if (markers[bin.id]) {
+            markers[bin.id].setStyle({ fillColor: color });
+            markers[bin.id].setLatLng([lat, lng]);
+            markers[bin.id].setPopupContent(popupHtml);
+        } else {
+            const marker = L.circleMarker([lat, lng], {
+                radius: 14, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9
+            }).addTo(markerGroup);
+            marker.bindPopup(popupHtml);
+            markers[bin.id] = marker;
+        }
+    });
+    
+    // 清理不存在的点位
+    const currentIds = bins.map(b => b.id);
+    Object.keys(markers).forEach(id => {
+        if (!currentIds.includes(id)) {
+            markerGroup.removeLayer(markers[id]);
+            delete markers[id];
+        }
+    });
+}
+
+// 渲染任务卡片
+function renderTasks() {
+    const taskListEl = document.getElementById('task-list');
+    const countEl = document.getElementById('task-count');
+    if(!taskListEl) return;
+    taskListEl.innerHTML = '';
+    
+    const validTasks = tasks.filter(t => {
+        const bin = bins.find(b => b.id === t.binId);
+        if (!bin) return false;
+        const fill = parseFloat(bin.fillRate) || 0;
+        const level = getRiskLevel(bin);
+        return fill >= 80 || level === 'high' || level === 'mid';
+    });
+    
+    countEl.textContent = validTasks.length;
+    
+    validTasks.forEach(task => {
+        const bin = bins.find(b => b.id === task.binId);
+        const fill = parseFloat(bin.fillRate) || 0;
+        const level = getRiskLevel(bin);
+        const isUrgent = fill >= 80 || level === 'high';
+        const locationName = bin.location || DEFAULT_NAMES[bin.id] || '温州大学城';
+        
+        const card = document.createElement('div');
+        card.className = 'task-card';
+        card.innerHTML = `
+            <div class="bin-id">${task.binId} · ${isUrgent ? '紧急' : '常规'}</div>
+            <div class="task-type ${isUrgent ? 'urgent' : 'normal'}">${isUrgent ? '🚛 清运任务' : '👀 巡检任务'}</div>
+            <div class="location">📍 ${locationName}</div>
+            <div class="location">填充率: ${fill.toFixed(1)}% | 风险: ${bin.riskLevel || 'low'}</div>
+            <button onclick="event.stopPropagation(); completeTask('${task.binId}')" 
+                    style="margin-top:8px;padding:4px 12px;background:#52c41a;color:white;border:none;border-radius:4px;cursor:pointer;">
+                ✅ 标记完成
+            </button>`;
+        card.onclick = () => {
+            if (markers[task.binId]) {
+                map.setView(markers[task.binId].getLatLng(), 16);
+                markers[task.binId].openPopup();
+            }
+        };
+        taskListEl.appendChild(card);
+    });
+}
+
+// 标记完成
+function completeTask(binId) {
+    lastCompleteTime = Date.now();
+    fetch('/api/clean', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({binId: binId})
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log('✅ 清运成功:', data);
+        const bin = bins.find(b => b.id === binId);
+        if (bin) {
+            bin.fillRate = 0;
+            bin.risk = 0;
+            bin.riskLevel = 'low';
+        }
+        renderMap();
+        renderTasks();
+    })
+    .catch(err => console.log('⚠️ 清运接口失败:', err));
+}
+
+// 每 5 秒刷新（清运后 5 秒内不刷新）
+setInterval(() => {
+    if (Date.now() - lastCompleteTime < 5000) return;
+    fetch('/api/risk')
+        .then(res => res.json())
+        .then(data => {
+            bins = data.bins || [];
+            tasks = data.tasks || [];
+            renderMap();
+            renderTasks();
+            console.log('🔄 刷新完成，点位:', bins.length, '任务:', tasks.length);
+        })
+        .catch(() => console.log('⚠️ 刷新失败，保持当前数据'));
+}, 5000);
+</script>
+</body>
+</html>
